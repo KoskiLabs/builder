@@ -1,0 +1,20 @@
+# Output
+target/
+logs/
+
+# Eclipse
+.metadata/
+.externalToolBuilders/
+maven-eclipse.xml
+bin/
+eclipse-bin/
+**/.classpath
+**/RemoteSystemsTempFiles/
+
+# IntelliJ
+.idea
+.settings/
+*.iml
+
+# Mac
+.DS_Store

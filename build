@@ -1,0 +1,150 @@
+#!/bin/sh
+
+# Copyright 2018 Ville Koskela
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# For documentation please refer to:
+# https://github.com/KoskiLabs/builder/blob/master/README.md
+
+log_err() {
+  l_prefix=$(date  +'%H:%M:%S')
+  printf "[%s] %s\n" "${l_prefix}" "$@" 1>&2;
+}
+
+log_out() {
+  if [ -n "${JDKW_VERBOSE}" ]; then
+    l_prefix=$(date  +'%H:%M:%S')
+    printf "[%s] %s\n" "${l_prefix}" "$@"
+  fi
+}
+
+safe_command() {
+  l_command=$1
+  log_out "${l_command}";
+  eval $1
+  l_result=$?
+  if [ "${l_result}" -ne "0" ]; then
+    log_err "ERROR: ${l_command} failed with ${l_result}"
+    exit 1
+  fi
+}
+
+checksum() {
+  l_file="$1"
+  checksum_exec=""
+  if command -v md5 > /dev/null; then
+    checksum_exec="md5"
+  elif command -v sha1sum > /dev/null; then
+    checksum_exec="sha1sum"
+  elif command -v shasum > /dev/null; then
+    checksum_exec="shasum"
+  fi
+  if [ -z "${checksum_exec}" ]; then
+    log_err "ERROR: No supported checksum command found!"
+    exit 1
+  fi
+  cat "${l_file}" | ${checksum_exec}
+}
+
+rand() {
+  awk 'BEGIN {srand();printf "%d\n", (rand() * 10^8);}'
+}
+
+download_if_needed() {
+  file="$1"
+  path="$2"
+  if [ ! -f "${path}/${file}" ]; then
+    build_url="${BUILD_URI}/releases/download/${BUILD_RELEASE}/${file}"
+    log_out "Downloading ${file} from ${build_url}"
+    safe_command "curl ${curl_options} -f -k -L -o \"${path}/${file}\" \"${build_url}\""
+    safe_command "chmod +x \"${path}/${file}\""
+  fi
+}
+
+# Default curl options
+curl_options=""
+
+# Load properties file in home directory
+if [ -f "${HOME}/.build" ]; then
+  . "${HOME}/.build"
+fi
+
+# Load properties file in working directory
+if [ -f ".build" ]; then
+  . "./.build"
+fi
+
+# Process command line arguments
+for arg in "$@"; do
+  build_arg=$(echo "${arg}" | grep 'BUILD_.*')
+  if [ -n "${build_arg}" ]; then
+    eval ${arg}
+  else
+    break
+  fi
+done
+
+# Process configuration
+if [ -z "${BUILD_BASE_URI}" ]; then
+    BUILD_BASE_URI="https://github.com/KoskiLabs/builder"
+    log_out "Defaulted to base uri ${BUILD_BASE_URI}"
+fi
+if [ -z "${BUILD_RELEASE}" ]; then
+  BUILD_RELEASE="latest"
+  log_out "Defaulted to version ${BUILD_RELEASE}"
+fi
+if [ -z "${BUILD_TARGET}" ]; then
+  BUILD_TARGET="${HOME}/.builder"
+  log_out "Defaulted to target ${BUILD_TARGET}"
+fi
+if [ -z "${BUILD_VERBOSE}" ]; then
+  curl_options="${curl_options} --silent"
+fi
+
+# Resolve latest version
+if [ "${BUILD_RELEASE}" = "latest" ]; then
+  latest_version_json="${TMPDIR:-/tmp}/builder-latest-version-$$.$(rand)"
+  safe_command "curl ${curl_options} -f -k -L -o \"${latest_version_json}\" -H 'Accept: application/json' \"${BUILD_BASE_URI}/releases/latest\""
+  BUILD_RELEASE=$(cat "${latest_version_json}" | sed -e 's/.*"tag_name":"\([^"]*\)".*/\1/')
+  rm -f "${latest_version_json}"
+  log_out "Resolved latest version to ${BUILD_RELEASE}"
+fi
+
+# Ensure target directory exists
+build_path="${BUILD_TARGET}/${BUILD_RELEASE}"
+if [ ! -d "${build_path}" ]; then
+  log_out "Creating target directory ${build_path}"
+  safe_command "mkdir -p \"${build_path}\""
+fi
+
+# Download the builder version
+build_impl="build-impl.sh"
+build_wrapper="build"
+download_if_needed "${build_impl}" "${build_path}"
+download_if_needed "${build_wrapper}" "${build_path}"
+
+# Execute the provided command
+${BUILD_PATH}/${build_impl} $@
+result=$?
+
+# Check whether this wrapper is the one specified for this version
+build_download="${build_path}/${build_wrapper}"
+build_current="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/$(basename "$0")"
+if [ "$(checksum "${build_download}")" != "$(checksum "${build_current}")" ]; then
+  printf "\e[0;31m[WARNING]\e[0m Your build file does not match the one in your BUILD_RELEASE.\n"
+  printf "\e[0;32mUpdate your build to match by running:\e[0m\n"
+  printf "cp \"%s\" \"%s\"\n" "${build_download}" "${build_current}"
+fi
+
+exit ${result}

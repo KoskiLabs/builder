@@ -1,0 +1,13 @@
+{
+  "name": "npm-builder-example",
+  "version": "1.0.0-alpha.1",
+  "description": "Example use of Koski Labs builder for NPM.",
+  "main": "index.js",
+  "scripts": {
+    "run": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "lint": "jshint *.js **/*.js",
+  "author": "Ville Koskela",
+  "license": "Apache-2.0"
+}

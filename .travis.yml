@@ -1,0 +1,25 @@
+cache:
+  directories:
+  - "$HOME/.jdk"
+  - "$HOME/.builder"
+sudo: false
+install: true
+services:
+- docker
+script:
+- pushd ./examples/maven-centos && ../../build-impl.sh clean install && popd
+#- pushd ./examples/maven-alpine && ../../build-impl.sh clean install && popd
+- pushd ./examples/sbt && ../../build-impl.sh clean package && popd
+- pushd ./examples/npm && ../../build-impl.sh build && popd
+- pushd ./examples/go && ../../build-impl.sh build -o bin/hello-world && popd
+- pushd ./examples/go && ../../build-impl.sh "BUILD_ADDITIONAL_ENVIRONMENT=GOOS=darwin GOARCH=amd64" build -o bin/hello-world-mac && popd
+deploy:
+  provider: releases
+  api_key:
+    secure: 35e7peo4lHcOfmHqwUKqb0CP250eVjliXbVg9N5Tcuhfd6/3eaUmVBsCOsVrS4LQxZbE0vs3OvBmzUnpK9M/3WwFBuDKl6j7Iytn+crdDmF5dSGuxzmUcBdZshyVJJOj4bA4XFmrT4eSYRpVKEO6n6BfnEPliv3j4rNkq11WuIOC2OV0nNHrW78/zrMyAEkG+sAxIrPOfedvbTkEBQ8RmPQvuBr91coLrESS984nXSAbqOpMUtNZW6OxA+S9VRFGOFthb8gqXqh7h/g5Q3iiRFg8MJD14AaQ9BqycHnwEEBeWenXg57BSegcLMoFShBb0MZnrjaL58/KVwFdRbSgHwta5kRXuLS/G3QR1j5LoorCiXEaKMx+CiTZkxH7OeTaQYBykdxIzD3f+jjNFlmJR70X/DoKfEY6WRMBMpKxLnLl3zQhqfWjZmjKZ3je4t4r/tf2bGWEDCbmcgy1DRC4HfhUAY3312SIgLIlDWmpSx02TxVq2fDS+Bcs3SlMYZ02v5tDEoD3LdQTUKFJ+RHojmggtQNAlp60jS8V271sn3iajqI9XA8y+BRM+1Y41HBNNGojhOSV9RoB3eejHir6LKKeu/++M4vzk3AasvLOJXbskrLtTP/KKFNrueQoc6IQV+mA7xGGx4fJIwRHWg94ew4jta+CZgfE1yAdSy7D8nk=
+  file:
+  - build
+  - build-impl.sh
+  on:
+    tags: true
+    repo: KoskiLabs/builder

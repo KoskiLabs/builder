@@ -1,0 +1,2 @@
+BUILD_DOCKER_IMAGE=koskilabs/builder-alpine
+BUILD_VERBOSE=true
