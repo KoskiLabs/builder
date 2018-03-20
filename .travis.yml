@@ -8,7 +8,7 @@ services:
 - docker
 script:
 - pushd ./examples/maven-centos && ../../build-impl.sh clean install && popd
-#- pushd ./examples/maven-alpine && ../../build-impl.sh clean install && popd
+- pushd ./examples/maven-alpine && ../../build-impl.sh clean install && popd
 - pushd ./examples/sbt && ../../build-impl.sh clean package && popd
 - pushd ./examples/npm && ../../build-impl.sh build && popd
 - pushd ./examples/go && ../../build-impl.sh build -o bin/hello-world && popd

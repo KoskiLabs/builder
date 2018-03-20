@@ -10,7 +10,7 @@ builder
          alt="Travis Build">
 </a>
 <a href="https://github.com/KoskiLabs/builder/releases">
-    <img src="https://img.shields.io/github/release/KoskiLabs/jdk-wrapper.svg"
+    <img src="https://img.shields.io/github/release/KoskiLabs/builder.svg"
          alt="Releases">
 </a>
 <a href="https://github.com/KoskiLabs/builder/releases">
@@ -22,6 +22,8 @@ Provides build isolation through Docker with automatic detection for common buil
 
 Quick Start
 -----------
+
+<>
 
 Usage
 -----
