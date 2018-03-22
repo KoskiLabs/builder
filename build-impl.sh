@@ -154,85 +154,80 @@ fi
 # Build tool auto detection
 # NOTE: This happens after loading configuration and defaults to allow those
 # values to be used by auto-detection; however, auto-detected values are only
-# used if configuration did not specify a value. The auto-detection only sets
-# BUILD_TOOL, BUILD_ARGUMENTS and BUILD_ENVIRONMENT.
-auto_build_tool=
-auto_build_arguments=
-auto_build_environment=
-if [ -f "pom.xml" ]; then
-  # Maven Support
-  log_out "Detected project using Maven build tool"
-  auto_build_tool="mvn"
-  auto_build_environment="\"MAVEN_OPTS=-XX:+TieredCompilation -XX:TieredStopAtLevel=1\""
-  if [ -f "mvnw" ]; then
-    auto_build_tool="./mvnw"
-    auto_build_environment="${auto_build_environment} \"MAVEN_USER_HOME=${BUILD_CACHE_MAVEN}\""
-  fi
-  common_arguments="-Dmaven.repo.local=${BUILD_CACHE_MAVEN} -DdockerHostIp=${BUILD_LOCAL_HOST_IP} -DdockerHostPath=${BUILD_LOCAL_DIRECTORY}"
-  if [ -f "settings.xml" ]; then
-    common_arguments="${common_arguments} --settings settings.xml"
-  fi
-  pass_through_arguments="${common_arguments}"
-  for arg in "$@"; do
-    if [ -n "${past_build_args}" ]; then
-      if case "${arg}" in "-D"*) true;; "-P"*) true;; *) false;; esac; then
-        pass_through_arguments="${pass_through_arguments} ${arg}"
-      fi
+# used if configuration did not specify a value for BUILD_TOOL. In this case
+# the auto-detection only sets BUILD_TOOL, BUILD_ARGUMENTS and BUILD_ENVIRONMENT.
+if [ -z "${BUILD_TOOL}" ]; then
+  auto_build_tool=
+  auto_build_arguments=
+  auto_build_environment=
+  if [ -f "pom.xml" ]; then
+    # Maven Support
+    log_out "Detected project using Maven build tool"
+    auto_build_tool="mvn"
+    auto_build_environment="\"MAVEN_OPTS=-XX:+TieredCompilation -XX:TieredStopAtLevel=1\""
+    if [ -f "mvnw" ]; then
+      auto_build_tool="./mvnw"
+      auto_build_environment="${auto_build_environment} \"MAVEN_USER_HOME=${BUILD_CACHE_MAVEN}\""
     fi
-  done
-  auto_build_arguments="-U ${common_arguments} \"-Darguments=${pass_through_arguments}\""
-elif [ -f "build.sbt" ]; then
-  # SBT Support
-  log_out "Detected project using SBT build tool"
-  sbt_boot="${BUILD_CACHE_SBT}/boot"
-  ivy_home="${BUILD_CACHE_IVY}"
-  auto_build_tool="sbt"
-  auto_build_arguments="-Dsbt.global.base=${BUILD_CACHE_SBT}/1.0 -Dsbt.boot.directory=${sbt_boot} -Dsbt.ivy.home=${ivy_home}"
-  if [ -f "repositories" ]; then
-    auto_build_arguments="${auto_build_arguments} -Dsbt.override.build.repos=true -Dsbt.repository.config=repositories"
+    common_arguments="-Dmaven.repo.local=${BUILD_CACHE_MAVEN} -DdockerHostIp=${BUILD_LOCAL_HOST_IP} -DdockerHostPath=${BUILD_LOCAL_DIRECTORY}"
+    if [ -f "settings.xml" ]; then
+      common_arguments="${common_arguments} --settings settings.xml"
+    fi
+    pass_through_arguments="${common_arguments}"
+    for arg in "$@"; do
+      if [ -n "${past_build_args}" ]; then
+        if case "${arg}" in "-D"*) true;; "-P"*) true;; *) false;; esac; then
+          pass_through_arguments="${pass_through_arguments} ${arg}"
+        fi
+      fi
+    done
+    auto_build_arguments="-U ${common_arguments} \"-Darguments=${pass_through_arguments}\""
+  elif [ -f "build.sbt" ]; then
+    # SBT Support
+    log_out "Detected project using SBT build tool"
+    sbt_boot="${BUILD_CACHE_SBT}/boot"
+    ivy_home="${BUILD_CACHE_IVY}"
+    auto_build_tool="sbt"
+    auto_build_arguments="-Dsbt.global.base=${BUILD_CACHE_SBT}/1.0 -Dsbt.boot.directory=${sbt_boot} -Dsbt.ivy.home=${ivy_home}"
+    if [ -f "repositories" ]; then
+     auto_build_arguments="${auto_build_arguments} -Dsbt.override.build.repos=true -Dsbt.repository.config=repositories"
+    fi
+    if [ -f "sbt" ]; then
+      auto_build_tool="./sbt"
+      auto_build_arguments="${auto_build_arguments} -sbt-launch-dir ${BUILD_CACHE_SBT}/launcher -sbt-boot ${sbt_boot} -ivy ${ivy_home}"
+    fi
+  elif [ -f "build.gradle" ]; then
+    # Gradle Support
+    log_out "Detected project using Gradle build tool"
+    auto_build_tool="gradle"
+    auto_build_environment="\"GRADLE_USER_HOME=${BUILD_CACHE_GRADLE}\""
+    if [ -f "gradlew" ]; then
+      auto_build_tool="./gradlew"
+    fi
+  elif [ -f "package.json" ]; then
+    # NodeJS Support
+    log_out "Detected project using NPM build tool"
+    auto_build_tool="npm"
+  elif [ -z "${BUILD_DISABLE_GO}" ]; then
+    if [ "$(find . -type f -name '*.go' | head -n 1 | wc -l)" -gt 0 ]; then
+      # Go Support
+      log_out "Detected project using Go build tool"
+      auto_build_tool="go"
+      auto_build_environment="\"GOPATH=$(pwd)\" \"GOCACHE=${BUILD_CACHE_GO}\""
+    fi
   fi
-  if [ -f "sbt" ]; then
-    auto_build_tool="./sbt"
-    auto_build_arguments="${auto_build_arguments} -sbt-launch-dir ${BUILD_CACHE_SBT}/launcher -sbt-boot ${sbt_boot} -ivy ${ivy_home}"
-  fi
-elif [ -f "build.gradle" ]; then
-  # Gradle Support
-  log_out "Detected project using Gradle build tool"
-  auto_build_tool="gradle"
-  auto_build_environment="\"GRADLE_USER_HOME=${BUILD_CACHE_GRADLE}\""
-  if [ -f "gradlew" ]; then
-    auto_build_tool="./gradlew"
-  fi
-elif [ -f "package.json" ]; then
-  # NodeJS Support
-  log_out "Detected project using NPM build tool"
-  auto_build_tool="npm"
-elif [ -z "${BUILD_DISABLE_GO}" ]; then
-  if [ "$(find . -type f -name '*.go' | head -n 1 | wc -l)" -gt 0 ]; then
-    # Go Support
-    log_out "Detected project using Go build tool"
-    auto_build_tool="go"
-    auto_build_environment="\"GOPATH=$(pwd)\" \"GOCACHE=${BUILD_CACHE_GO}\""
-  fi
+
+  BUILD_TOOL="${auto_build_tool}"
+  BUILD_ARGUMENTS="${auto_build_arguments}"
+  BUILD_ENVIRONMENT="${auto_build_environment}"
 fi
 
 # JDK Wrapper Support
 if [ -z "${BUILD_DISABLE_JDK_WRAPPER}" ]; then
   if [ -f "jdk-wrapper.sh" ]; then
-   auto_build_tool="./jdk-wrapper.sh ${auto_build_tool}"
-   auto_build_environment="${auto_build_environment} \"JDKW_TARGET=${BUILD_CACHE_JDK}\""
+   BUILD_TOOL="./jdk-wrapper.sh ${BUILD_TOOL}"
+   BUILD_ENVIRONMENT="${BUILD_ENVIRONMENT} \"JDKW_TARGET=${BUILD_CACHE_JDK}\""
   fi
-fi
-
-# Apply auto detected settings
-if [ -z "${BUILD_TOOL}" ]; then
-  BUILD_TOOL="${auto_build_tool}"
-fi
-if [ -z "${BUILD_ARGUMENTS}" ]; then
-  BUILD_ARGUMENTS="${auto_build_arguments}"
-fi
-if [ -z "${BUILD_ENVIRONMENT}" ]; then
-  BUILD_ENVIRONMENT="${auto_build_environment}"
 fi
 
 # Check required configuration
